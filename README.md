@@ -47,3 +47,23 @@ const merged = merge(
 ```
 
 Merging is necessary if coverage is output from multiple subprocesses.
+
+# Merge Algorithm
+
+The merge algorithm can be pretty tricky: the intent of this section is to explain the
+main ideas of the algorithm.
+
+## Terminology
+
+First of all, let's clarify some terms that will be used in the rest of this section:
+
+- `ProcessCoverage`: A list of script coverages obtained during the execution of the same Node process.
+- `ScriptCoverage`: Represents the coverage for a given file (identified by its url). It countains
+  a list of function coverages.
+- `FunctionCoverage`: Represents the coverage for a given function, or block of code, or whole module.
+  I believe this is related to V8's internals and how they store their logical blocks of code.
+  It contains a list of coverage ranges.
+- `CoverageRange`: The primary unit of coverage. Contains the number of times a span of
+  code was executed.
+
+The high level goal is to merge multiple process coverages.

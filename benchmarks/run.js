@@ -13,6 +13,7 @@ async function main () {
   }
 
   suite.on('cycle', (event) => {console.log(event.target.toString())})
+  suite.on('error', (event) => {console.error(event)})
   suite.run({'async': true})
 }
 
@@ -47,15 +48,7 @@ function groupByUrl (coverages) {
 function mergeAll (urlToScriptCoverages) {
   const result = new Map()
   for (const [url, scriptCoverages] of urlToScriptCoverages) {
-    result.set(url, mergeOne(scriptCoverages))
-  }
-  return result
-}
-
-function mergeOne (scriptCoverages) {
-  let result = scriptCoverages[0]
-  for (const scriptCoverage of scriptCoverages.slice(1)) {
-    result = v8CoverageMerge(result, scriptCoverage)
+    result.set(url, v8CoverageMerge(...scriptCoverages))
   }
   return result
 }
