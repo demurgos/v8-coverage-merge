@@ -13,7 +13,7 @@ describe('end-to-end', () => {
     const {input, expected} = readFixture(fixture)
 
     it(fixture, () => {
-      let actual = input.slice(1).reduce((acc, cov) => merge(acc, cov), input[0])
+      let actual = merge(...input)
       chai.assert.deepEqual(actual, expected)
     })
   }

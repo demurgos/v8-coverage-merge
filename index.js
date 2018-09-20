@@ -1,196 +1,224 @@
-module.exports = (cov1, cov2) => {
-  const blockLookup = Object.create(null)
-  const funcLookup = Object.create(null)
-  const merged = {
-    url: cov1.url,
-    scriptId: cov1.scriptId,
-    functions: []
+module.exports = mergeScripts
+
+function mergeScripts (...scripts) {
+  if (scripts.length === 0) {
+    return undefined
   }
-  cov1.functions.forEach(func => {
-    func = cloneFunction(func)
-    if (func.isBlockCoverage) blockLookup[func.functionName] = func
-    else funcLookup[func.functionName] = func
-    merged.functions.push(func)
-  })
-  cov2.functions.forEach(func => {
-    // block coverage should take precedence.
-    if (func.isBlockCoverage && funcLookup[func.functionName]) {
-      merged.functions.splice(
-        merged.functions.indexOf(funcLookup[func.functionName]),
-        1
-      )
-      delete funcLookup[func.functionName]
+  const first = scripts[0]
+  const hashToFns = new Map()
+  for (const script of scripts) {
+    for (const fn of script.functions) {
+      const hash = hashFunction(fn)
+      let fns = hashToFns.get(hash)
+      if (fns === undefined) {
+        fns = []
+        hashToFns.set(hash, fns)
+      }
+      fns.push(fn)
     }
-    if (!func.isBlockCoverage && blockLookup[func.functionName]) {
-      return
-    }
-
-    if (func.isBlockCoverage && blockLookup[func.functionName]) {
-      mergeFunctions(blockLookup[func.functionName], func)
-    } else if (!func.isBlockCoverage && funcLookup[func.functionName]) {
-      mergeFunctions(funcLookup[func.functionName], func)
-    } else {
-      merged.functions.push(cloneFunction(func))
-    }
-  })
-
-  // we should handle function coverage before
-  // block coverage.
-  merged.functions.sort(() => {
-
-  })
-  return merged
-}
-
-function cloneFunction (func) {
-  const ranges = []
-  func.ranges.forEach(range => {
-    ranges.push(cloneRange(range))
-  })
+  }
+  const functions = []
+  for (const fns of hashToFns.values()) {
+    functions.push(mergeFunctions(fns))
+  }
   return {
-    functionName: func.functionName,
-    isBlockCoverage: func.isBlockCoverage,
-    ranges: ranges
+    scriptId: first.scriptId,
+    url: first.url,
+    functions
   }
 }
 
-function cloneRange (range) {
+function mergeFunctions (fns) {
+  if (fns.length === 0) {
+    return undefined
+  }
+  const first = fns[0]
+  const trees = fns.map(fn => createRangeTree(fn.ranges))
+  const mergedTree = mergeRangeTrees(trees)
+  const normalizedTree = normalizeRangeTree(mergedTree)
+  const ranges = flattenRangeTree(normalizedTree)
   return {
-    startOffset: range.startOffset,
-    endOffset: range.endOffset,
-    count: range.count
+    functionName: first.functionName,
+    ranges,
+    isBlockCoverage: first.isBlockCoverage
   }
 }
 
-function mergeFunctions (func1, func2) {
-  const ranges = func1.ranges
-  ranges.sort((a, b) => {
-    return a.endOffset - b.endOffset
-  })
-  for (const range of func2.ranges) {
-    let i = 0
-    for (let range2; (range2 = ranges[i]) !== undefined; i++) {
-      if (range.endOffset < range2.endOffset) break
+/**
+ * @precodition `ranges` are well-formed and pre-order sorted
+ */
+function createRangeTree (ranges) {
+  const first = ranges[0]
+  const root = {start: first.startOffset, end: first.endOffset, count: first.count, children: []}
+  const stack = [root]
+  for (let i = 1; i < ranges.length; i++) {
+    const range = ranges[i]
+    const node = {start: range.startOffset, end: range.endOffset, count: range.count, children: []}
+    let top
+    // The loop condition is only there for safety, it should always be true.
+    while (stack.length > 0) {
+      top = stack[stack.length - 1]
+      if (range.startOffset >= top.end) {
+        stack.pop()
+        top = stack[stack.length - 1]
+      } else {
+        break
+      }
     }
-    insertRange(
-      Math.min(i, ranges.length - 1),
-      range,
-      ranges
-    )
+    top.children.push(node)
+    stack.push(node)
+  }
+  return root
+}
+
+function flattenRangeTree (tree) {
+  const ranges = [{startOffset: tree.start, endOffset: tree.end, count: tree.count}]
+  for (const child of tree.children) {
+    for (const range of flattenRangeTree(child)) {
+      ranges.push(range)
+    }
   }
   return ranges
 }
 
-function insertRange (index, newRange, ranges) {
-  const oldRange = ranges.splice(index, 1)[0]
-  if (rangesEqual(newRange, oldRange)) {
-    //    A B
-    //    | |
-    //    | |
-    //    | |
-    //    | |
-    //    | |
-    newRange.count += oldRange.count
-    Array.prototype.splice.apply(ranges, [index, 0, newRange])
-  } else if (newRange.startOffset <= oldRange.startOffset &&
-             newRange.endOffset >= oldRange.startOffset &&
-             newRange.endOffset <= oldRange.endOffset) {
-    //    A B
-    //      |
-    //    | |
-    //    | |
-    //    | |
-    //    |
-    const splitRange = {
-      startOffset: oldRange.startOffset,
-      endOffset: newRange.endOffset,
-      count: newRange.count + oldRange.count
+function normalizeRangeTree (tree) {
+  const children = []
+  let prevChild
+  for (const child of tree.children) {
+    if (prevChild === undefined) {
+      prevChild = child
+      continue
     }
-    newRange.endOffset = oldRange.startOffset
-    oldRange.startOffset = splitRange.endOffset
-    Array.prototype.splice.apply(ranges, [index, 0, newRange, splitRange,
-      oldRange])
-  } else if (newRange.startOffset >= oldRange.startOffset &&
-        newRange.startOffset <= oldRange.endOffset &&
-        newRange.endOffset >= oldRange.endOffset) {
-    //    A B
-    //    |
-    //    | |
-    //    | |
-    //    | |
-    //      |
-    const splitRange = {
-      startOffset: newRange.startOffset,
-      endOffset: oldRange.endOffset,
-      count: newRange.count + oldRange.count
+    if (prevChild.count === child.count && prevChild.end === child.start) {
+      prevChild = {
+        start: prevChild.start,
+        end: child.end,
+        count: prevChild.count,
+        children: [...prevChild.children, ...child.children],
+      }
+    } else {
+      children.push(normalizeRangeTree(prevChild))
+      prevChild = child
     }
-    newRange.startOffset = oldRange.endOffset
-    oldRange.endOffset = splitRange.startOffset
-    Array.prototype.splice.apply(ranges, [index, 0, oldRange, splitRange,
-      newRange])
-  } else if (newRange.startOffset >= oldRange.startOffset &&
-             newRange.endOffset <= oldRange.endOffset) {
-    //    A B
-    //    |
-    //    | |
-    //    | |
-    //    | |
-    //    |
-    const splitRange = {
-      startOffset: newRange.startOffset,
-      endOffset: newRange.endOffset,
-      count: newRange.count + oldRange.count
-    }
-    newRange.startOffset = oldRange.startOffset
-    newRange.endOffset = splitRange.startOffset
-    newRange.count = oldRange.count
+  }
+  if (prevChild !== undefined) {
+    children.push(normalizeRangeTree(prevChild))
+  }
+  return {...tree, children}
+}
 
-    oldRange.startOffset = splitRange.endOffset
-    Array.prototype.splice.apply(ranges, [index, 0, newRange, splitRange,
-      oldRange])
-  } else if (newRange.startOffset <= oldRange.startOffset &&
-             newRange.endOffset >= oldRange.endOffset) {
-    //    A B
-    //      |
-    //    | |
-    //    | |
-    //    | |
-    //      |
-    const originalEndOffset = newRange.endOffset
-    const splitRange = {
-      startOffset: newRange.startOffset,
-      endOffset: oldRange.startOffset,
-      count: newRange.count
+/**
+ * @precondition `tree.start < value && value < tree.end`
+ */
+function splitRangeTree (tree, value) {
+  const leftChildren = []
+  const rightChildren = []
+  for (const child of tree.children) {
+    if (child.end <= value) {
+      leftChildren.push(child)
+    } else if (child.start < value) {
+      const [left, right] = splitRangeTree(child, value)
+      leftChildren.push(left)
+      rightChildren.push(right)
+    } else {
+      rightChildren.push(child)
     }
-    newRange.startOffset = oldRange.startOffset
-    newRange.endOffset = oldRange.endOffset
-    newRange.count = oldRange.count + newRange.count
+  }
+  return [
+    {start: tree.start, end: value, count: tree.count, children: leftChildren},
+    {start: value, end: tree.end, count: tree.count, children: rightChildren},
+  ]
+}
 
-    oldRange.startOffset = newRange.endOffset
-    oldRange.endOffset = originalEndOffset
-    oldRange.count = splitRange.count
-    Array.prototype.splice.apply(ranges, [index, 0, splitRange, newRange,
-      oldRange])
-  } else if (newRange.endOffset < oldRange.endOffset) {
-    //    A B
-    //      |
-    //      |
-    //    |
-    //    |
-    //    |
-    Array.prototype.splice.apply(ranges, [index, 0, newRange, oldRange])
-  } else {
-    //    A B
-    //    |
-    //    |
-    //    |
-    //      |
-    //      |
-    Array.prototype.splice.apply(ranges, [index, 0, oldRange, newRange])
+/**
+ * @precondition Same `start` and `end` for all the trees
+ */
+function mergeRangeTrees (trees) {
+  if (trees.length === 0) {
+    return undefined
+  }
+  const first = trees[0]
+  return {
+    start: first.start,
+    end: first.end,
+    count: trees.reduce((acc, tree) => acc + tree.count, 0),
+    children: mergeRangeTreeLists(trees.map(tree => tree.children), trees.map(tree => tree.count)),
   }
 }
 
-function rangesEqual (range1, range2) {
-  return range1.startOffset === range2.startOffset &&
-         range1.endOffset === range2.endOffset
+function mergeRangeTreeLists (treeLists, parentCounts) {
+  const eventSet = new Set()
+  for (const treeList of treeLists) {
+    for (const tree of treeList) {
+      eventSet.add(tree.start)
+      eventSet.add(tree.end)
+    }
+  }
+  const events = [...eventSet]
+  numSort(events)
+  const splitTreeLists = []
+  for (const treeList of treeLists) {
+    const splitTrees = []
+    let treeIndex = 0
+    let partialTree
+    for (let eventIndex = 1; eventIndex < events.length; eventIndex++) {
+      const event = events[eventIndex]
+      if (partialTree !== undefined) {
+        if (partialTree.end === event) {
+          splitTrees.push(partialTree)
+          partialTree = undefined
+          treeIndex++
+        } else {
+          // event < partialTree.end
+          const [left, right] = splitRangeTree(partialTree, event)
+          splitTrees.push(left)
+          partialTree = right
+        }
+      } else {
+        const tree = treeList[treeIndex]
+        if (tree === undefined) {
+          splitTrees.push(undefined)
+        } else if (tree.end === event) {
+          splitTrees.push(tree)
+          treeIndex++
+        } else if (tree.start < event) {
+          // tree.start < event && event < tree.end
+          const [left, right] = splitRangeTree(tree, event)
+          splitTrees.push(left)
+          partialTree = right
+        } else {
+          splitTrees.push(undefined)
+        }
+      }
+    }
+    splitTreeLists.push(splitTrees)
+  }
+
+  const result = []
+  for (let eventIndex = 1; eventIndex < events.length; eventIndex++) {
+    const splitTrees = []
+    let parentAcc = 0
+    for (const [i, splitTreeList] of splitTreeLists.entries()) {
+      const splitTree = splitTreeList[eventIndex - 1]
+      if (splitTree !== undefined) {
+        splitTrees.push(splitTree)
+      } else {
+        parentAcc += parentCounts[i]
+      }
+    }
+    const merged = mergeRangeTrees(splitTrees)
+    if (merged !== undefined) {
+      merged.count += parentAcc
+      result.push(merged)
+    }
+  }
+  return result
+}
+
+function hashFunction (fn) {
+  return JSON.stringify([fn.ranges[0].startOffset, fn.ranges[0].endOffset])
+}
+
+function numSort (arr) {
+  arr.sort((a, b) => a - b)
 }
