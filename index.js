@@ -1,3 +1,5 @@
+const {RangeTree} = require('./range-tree')
+
 module.exports = mergeScripts
 
 function mergeScripts (...scripts) {
@@ -33,7 +35,10 @@ function mergeFunctions (fns) {
     return undefined
   }
   const first = fns[0]
-  const trees = fns.map(fn => createRangeTree(fn.ranges))
+  const trees = []
+  for (const fn of fns) {
+    trees.push(RangeTree.fromRanges(fn.ranges))
+  }
   const mergedTree = mergeRangeTrees(trees)
   const normalizedTree = normalizeRangeTree(mergedTree)
   const ranges = flattenRangeTree(normalizedTree)
@@ -44,41 +49,8 @@ function mergeFunctions (fns) {
   }
 }
 
-/**
- * @precodition `ranges` are well-formed and pre-order sorted
- */
-function createRangeTree (ranges) {
-  const first = ranges[0]
-  const root = {start: first.startOffset, end: first.endOffset, count: first.count, children: []}
-  const stack = [root]
-  for (let i = 1; i < ranges.length; i++) {
-    const range = ranges[i]
-    const node = {start: range.startOffset, end: range.endOffset, count: range.count, children: []}
-    let top
-    // The loop condition is only there for safety, it should always be true.
-    while (stack.length > 0) {
-      top = stack[stack.length - 1]
-      if (range.startOffset >= top.end) {
-        stack.pop()
-        top = stack[stack.length - 1]
-      } else {
-        break
-      }
-    }
-    top.children.push(node)
-    stack.push(node)
-  }
-  return root
-}
-
 function flattenRangeTree (tree) {
-  const ranges = [{startOffset: tree.start, endOffset: tree.end, count: tree.count}]
-  for (const child of tree.children) {
-    for (const range of flattenRangeTree(child)) {
-      ranges.push(range)
-    }
-  }
-  return ranges
+  return RangeTree.prototype.toRanges.apply(tree)
 }
 
 function normalizeRangeTree (tree) {
