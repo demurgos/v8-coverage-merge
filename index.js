@@ -36,8 +36,10 @@ function mergeFunctions (fns) {
   }
   const first = fns[0]
   const trees = []
+  let isBlockCoverage = false
   for (const fn of fns) {
     trees.push(RangeTree.fromRanges(fn.ranges))
+    isBlockCoverage = isBlockCoverage || fn.isBlockCoverage
   }
   const mergedTree = mergeRangeTrees(trees)
   const normalizedTree = normalizeRangeTree(mergedTree)
@@ -45,7 +47,7 @@ function mergeFunctions (fns) {
   return {
     functionName: first.functionName,
     ranges,
-    isBlockCoverage: first.isBlockCoverage
+    isBlockCoverage,
   }
 }
 
