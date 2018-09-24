@@ -92,3 +92,25 @@ merges two trees with non-overlapping touching children (after/before)
 =
 [5------------------------)
 [3---------)[10--------)
+
+merges two trees with partially overlapping children (before/before)
+0  1  2  3  4  5  6  7  8  9
+[1------------------------)
+   [2---------)
++
+[4------------------------)
+         [6------------)
+=
+[5------------------------)
+   [6---)[8---)[7------)
+
+merges two trees with partially overlapping children (after/before)
+0  1  2  3  4  5  6  7  8  9
+[1------------------------)
+         [6------------)
++
+[4------------------------)
+   [2---------)
+=
+[5------------------------)
+   [3---)[8---)[10-----)
