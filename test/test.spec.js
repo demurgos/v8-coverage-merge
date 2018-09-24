@@ -33,7 +33,7 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
-                startOffset: 70,
+                startOffset: 230,
                 endOffset: 400,
                 count: 2
               }
@@ -47,6 +47,16 @@ describe('v8-coverage-merge', () => {
   })
 
   it('merges non-overlapping ranges for functions with same name', () => {
+    // 20   30   221  300  400  410
+    // [3----------------------)
+    //      [1--)
+    // +
+    // [3----------------------)
+    //                [2--)
+    // =
+    // [6----------------------)
+    //      [4--)     [5--)
+
     const merged = merge(
       {
         scriptId: '70',
@@ -57,47 +67,10 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
-                startOffset: 30,
-                endOffset: 221,
-                count: 1
-              }
-            ]
-          }
-        ]
-      },
-      {
-        scriptId: '71',
-        url: '/Users/benjamincoe/oss/c8/test/fixtures/timeout.js',
-        functions: [
-          {
-            functionName: 'bar',
-            isBlockCoverage: true,
-            ranges: [
-              {
-                startOffset: 300,
-                endOffset: 400,
-                count: 2
-              }
-            ]
-          }
-        ]
-      }
-    )
-
-    merged.functions.length.should.equal(1)
-    merged.functions[0].ranges.length.should.equal(2)
-  })
-
-  it('merges partially enclosed sub-range: a.startOffset < b.startOffset', () => {
-    const merged = merge(
-      {
-        scriptId: '70',
-        url: '/Users/benjamincoe/oss/c8/test/fixtures/timeout.js',
-        functions: [
-          {
-            functionName: 'bar',
-            isBlockCoverage: true,
-            ranges: [
+                startOffset: 20,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 30,
                 endOffset: 221,
@@ -117,7 +90,12 @@ describe('v8-coverage-merge', () => {
             ranges: [
               {
                 startOffset: 20,
-                endOffset: 150,
+                endOffset: 410,
+                count: 3
+              },
+              {
+                startOffset: 300,
+                endOffset: 400,
                 count: 2
               }
             ]
@@ -130,7 +108,17 @@ describe('v8-coverage-merge', () => {
     merged.functions[0].ranges.length.should.equal(3)
   })
 
-  it('merges partially enclosed sub-range: a.endOffset > b.endOffset', () => {
+  it('merges partially enclosed sub-range: a.startOffset < b.startOffset', () => {
+    // 10   20   30   150  221  410
+    // [3----------------------)
+    //           [1-------)
+    // +
+    // [3----------------------)
+    //      [2-------)
+    // =
+    // [6----------------------)
+    //      [5--)[3--)[4--)
+
     const merged = merge(
       {
         scriptId: '70',
@@ -140,6 +128,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 30,
                 endOffset: 221,
@@ -157,6 +150,63 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
+                startOffset: 20,
+                endOffset: 150,
+                count: 2
+              }
+            ]
+          }
+        ]
+      }
+    )
+
+    merged.functions.length.should.equal(1)
+    merged.functions[0].ranges.length.should.equal(4)
+  })
+
+  it('merges partially enclosed sub-range: a.endOffset > b.endOffset', () => {
+    const merged = merge(
+      {
+        scriptId: '70',
+        url: '/Users/benjamincoe/oss/c8/test/fixtures/timeout.js',
+        functions: [
+          {
+            functionName: 'bar',
+            isBlockCoverage: true,
+            ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
+                startOffset: 30,
+                endOffset: 221,
+                count: 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        scriptId: '71',
+        url: '/Users/benjamincoe/oss/c8/test/fixtures/timeout.js',
+        functions: [
+          {
+            functionName: 'bar',
+            isBlockCoverage: true,
+            ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 60,
                 endOffset: 300,
@@ -183,6 +233,11 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
                 startOffset: 30,
                 endOffset: 221,
                 count: 1
@@ -199,6 +254,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 70,
                 endOffset: 150,
@@ -225,6 +285,11 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
                 startOffset: 30,
                 endOffset: 221,
                 count: 1
@@ -241,6 +306,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 10,
                 endOffset: 300,
@@ -267,6 +337,11 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
                 startOffset: 30,
                 endOffset: 221,
                 count: 1
@@ -283,6 +358,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 30,
                 endOffset: 221,
@@ -309,6 +389,11 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
+                startOffset: 5,
+                endOffset: 410,
+                count: 3
+              },
+              {
                 startOffset: 30,
                 endOffset: 105,
                 count: 1
@@ -330,6 +415,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 5,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 10,
                 endOffset: 60,
@@ -366,6 +456,11 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: true,
             ranges: [
               {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
                 startOffset: 30,
                 endOffset: 221,
                 count: 1
@@ -382,6 +477,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: false,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 300,
                 endOffset: 400,
@@ -408,6 +508,11 @@ describe('v8-coverage-merge', () => {
             isBlockCoverage: false,
             ranges: [
               {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
+              {
                 startOffset: 30,
                 endOffset: 221,
                 count: 1
@@ -424,6 +529,11 @@ describe('v8-coverage-merge', () => {
             functionName: 'bar',
             isBlockCoverage: true,
             ranges: [
+              {
+                startOffset: 10,
+                endOffset: 410,
+                count: 3
+              },
               {
                 startOffset: 300,
                 endOffset: 400,
