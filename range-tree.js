@@ -11,11 +11,53 @@ class RangeTree {
     return new RangeTree(this.start, this.end, this.count, this.children)
   }
 
-  // normalize() {
-  //   for (const child of this.children) {
-  //     child.normalize()
-  //   }
-  // }
+  normalize () {
+    const children = []
+    let curEnd
+    let head
+    const tail = []
+    for (const child of this.children) {
+      if (head === undefined) {
+        head = child
+      } else {
+        if (child.count === head.count && child.start === curEnd) {
+          tail.push(child)
+        } else {
+          endChain()
+          head = child
+        }
+      }
+      curEnd = child.end
+    }
+    if (head !== undefined) {
+      endChain()
+    }
+
+    if (children.length === 1) {
+      const child = children[0]
+      if (child.start === this.start && child.end === this.end) {
+        this.count = child.count
+        this.children = child.children
+        return
+      }
+    }
+
+    this.children = children
+
+    function endChain () {
+      if (tail.length !== 0) {
+        head.end = tail[tail.length - 1].end
+        for (const tailTree of tail) {
+          for (const subChild of tailTree.children) {
+            head.children.push(subChild)
+          }
+        }
+        tail.length = 0
+      }
+      head.normalize()
+      children.push(head)
+    }
+  }
 
   toRanges () {
     const ranges = []

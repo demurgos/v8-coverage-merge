@@ -42,38 +42,13 @@ function mergeFunctions (fns) {
     isBlockCoverage = isBlockCoverage || fn.isBlockCoverage
   }
   const mergedTree = mergeRangeTrees(trees)
-  const normalizedTree = normalizeRangeTree(mergedTree)
-  const ranges = flattenRangeTree(normalizedTree)
+  mergedTree.normalize()
+  const ranges = mergedTree.toRanges()
   return {
     functionName: first.functionName,
     ranges,
     isBlockCoverage,
   }
-}
-
-function flattenRangeTree (tree) {
-  return tree.toRanges()
-}
-
-function normalizeRangeTree (tree) {
-  const children = []
-  let prevChild
-  for (const child of tree.children) {
-    if (prevChild === undefined) {
-      prevChild = child
-      continue
-    }
-    if (prevChild.count === child.count && prevChild.end === child.start) {
-      prevChild = new RangeTree(prevChild.start, child.end, prevChild.count, [...prevChild.children, ...child.children])
-    } else {
-      children.push(normalizeRangeTree(prevChild))
-      prevChild = child
-    }
-  }
-  if (prevChild !== undefined) {
-    children.push(normalizeRangeTree(prevChild))
-  }
-  return Object.assign(tree.copy(), {children})
 }
 
 /**
