@@ -2,6 +2,7 @@ const cp = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const rimraf = require('rimraf')
+const {RangeTree} = require('../../range-tree')
 
 const SIMPLE_MAIN_RE = /^main\.\d+\.m?js$/
 const MAIN_RE = /^main\.(.+)\.m?js$/
@@ -35,11 +36,16 @@ async function generateFixture (name) {
   const simpleMains = getSimpleMains(dir)
   const mainAll = generateMainAll(simpleMains)
   await fs.promises.writeFile(path.join(dir, MAIN_ALL), mainAll)
+  const trees = []
   for (const simpleMain of [...simpleMains, MAIN_ALL]) {
     const id = MAIN_RE.exec(simpleMain)[1]
     const libCoverage = await getLibCoverage(dir, simpleMain)
     await fs.promises.writeFile(path.join(dir, `cov.${id}.json`), JSON.stringify(libCoverage, null, 2))
+    const libFn = getLibFunction(libCoverage)
+    trees.push(RangeTree.fromRanges(libFn.ranges))
   }
+  const asciiForest = RangeTree.toAsciiForest(trees)
+  await fs.promises.writeFile(path.join(dir, `ranges.txt`), asciiForest + '\n')
 }
 
 function getSimpleMains (dir) {
@@ -82,6 +88,15 @@ async function getLibCoverage (dir, main) {
     }
   }
   throw new Error(`Coverage not found for \`lib.js\` for ${path.join(dir, main)}`)
+}
+
+function getLibFunction (coverage) {
+  for (const fn of coverage.functions) {
+    if (fn.functionName === 'lib') {
+      return fn
+    }
+  }
+  throw new Error(`Lib function not found for ${path.join(coverage.url)}`)
 }
 
 async function spawnWithCoverage (dir, main, covDir) {

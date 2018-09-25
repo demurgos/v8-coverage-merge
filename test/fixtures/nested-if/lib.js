@@ -1,4 +1,4 @@
-module.exports = function (a, b) {
+module.exports = function lib (a, b) {
   if (a) {
     if (b) {
       console.log('true, true')

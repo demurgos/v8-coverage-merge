@@ -38,8 +38,13 @@ function mergeFunctions (fns) {
   const trees = []
   let isBlockCoverage = false
   for (const fn of fns) {
-    trees.push(RangeTree.fromRanges(fn.ranges))
+    const tree = RangeTree.fromRanges(fn.ranges)
+    trees.push(tree)
     isBlockCoverage = isBlockCoverage || fn.isBlockCoverage
+  }
+  if (first.functionName === 'formatWithOptions') {
+    console.log(RangeTree.toAsciiForest(trees))
+    // process.exit(0)
   }
   const mergedTree = mergeRangeTrees(trees)
   mergedTree.normalize()
@@ -52,34 +57,11 @@ function mergeFunctions (fns) {
 }
 
 /**
- * @precondition `tree.start < value && value < tree.end`
- */
-function splitRangeTree (tree, value) {
-  const leftChildren = []
-  const rightChildren = []
-  for (const child of tree.children) {
-    if (child.end <= value) {
-      leftChildren.push(child)
-    } else if (child.start < value) {
-      const [left, right] = splitRangeTree(child, value)
-      leftChildren.push(left)
-      rightChildren.push(right)
-    } else {
-      rightChildren.push(child)
-    }
-  }
-  return [
-    new RangeTree(tree.start, value, tree.count, leftChildren),
-    new RangeTree(value, tree.end, tree.count, rightChildren),
-  ]
-}
-
-/**
  * @precondition Same `start` and `end` for all the trees
  */
 function mergeRangeTrees (trees) {
-  if (trees.length === 0) {
-    return undefined
+  if (trees.length <= 1) {
+    return trees[0]
   }
   const first = trees[0]
   let count = 0
@@ -107,8 +89,8 @@ function mergeRangeTreeChildren (parentTrees) {
           treeIndex++
         } else {
           // event < partialTree.end
-          const [left, right] = splitRangeTree(partialTree, event)
-          splitTrees.push(left)
+          const right = partialTree.split(event)
+          splitTrees.push(partialTree)
           partialTree = right
         }
       } else {
@@ -120,8 +102,8 @@ function mergeRangeTreeChildren (parentTrees) {
           treeIndex++
         } else if (tree.start < event) {
           // tree.start < event && event < tree.end
-          const [left, right] = splitRangeTree(tree, event)
-          splitTrees.push(left)
+          const right = tree.split(event)
+          splitTrees.push(tree)
           partialTree = right
         } else {
           splitTrees.push(undefined)
@@ -166,12 +148,6 @@ function getChildBoundaries (parentTrees) {
 }
 
 // To check:
-
-// ####------
-// --#####---
-
-// --####--
-// #####---
 
 // ######--##----------##---
 // --##--------###---#####--
@@ -265,27 +241,21 @@ function extendChildren (parentTrees) {
       remainingChildren.delete(parent)
     }
     if (startChildren.length > 0) {
-      for (const openTree of openTrees) {
-        const originalLength = startChildren.length
-        for (let i = 0; i < originalLength; i++) {
-          const startChild = startChildren[i]
+      const originalLength = startChildren.length
+      for (let i = 0; i < originalLength; i++) {
+        const startChild = startChildren[i]
+        for (const openTree of openTrees) {
           if (startChild.start < openTree.end && openTree.end < startChild.end) {
-            // --#####--- openTree
-            // ----#####- startChild
-            const [openLeft, openRight] = splitRangeTree(openTree, startChild.start)
-            const [startLeft, startRight] = splitRangeTree(startChild, openTree.end)
-            const openParent = parents.get(openTree)
+            // Found:
+            // openTree   [x---)
+            // startChild    [y---)
+            // Output:
+            // openTree   [x---)
+            // startChild    [y)[y) startRight
+            const startRight = startChild.split(openTree.end)
             const startParent = parents.get(startChild)
-            Object.assign(startChild, startLeft)
-            Object.assign(openTree, openLeft)
-            parents.set(openRight, openParent)
             parents.set(startRight, startParent)
-            endChildren.push(openTree)
-            startChildren.push(openRight)
-            const openRemaining = remainingChildren.get(openParent)
             const startRemaining = remainingChildren.get(startParent)
-            openRemaining.pop()
-            openRemaining.push(openRight)
             startRemaining.pop()
             startRemaining.push(startRight)
             startRemaining.push(startChild)
@@ -312,10 +282,12 @@ function extendChildren (parentTrees) {
         inclusionRoots.add(superTree)
         inclusionRoots.delete(endChild)
       }
-      openTrees.delete(endChild)
       const endParent = parents.get(endChild)
       const newChildrenSet = newChildren.get(endParent)
       newChildrenSet.add(endChild)
+    }
+    for (const endChild of endChildren) {
+      openTrees.delete(endChild)
     }
     for (const startChild of startChildren) {
       openTrees.add(startChild)
@@ -329,7 +301,7 @@ function extendChildren (parentTrees) {
         const parent = parents.get(subTree)
         const wrapper = wrappers.get(parent)
         if (wrapper === undefined) {
-          const nested = {...subTree}
+          const nested = subTree.copy()
           Object.assign(
             subTree,
             {start: superTree.start, end: superTree.end, count: parent.count, children: [nested]},

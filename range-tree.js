@@ -59,6 +59,37 @@ class RangeTree {
     }
   }
 
+  /**
+   * @precondition `tree.start < value && value < tree.end`
+   * @return RangeTree Right part
+   */
+  split (value) {
+    let leftEnd = this.children.length
+    let mid
+
+    // TODO(perf): Binary search (check overhead)
+    for (let i = 0; i < this.children.length; i++) {
+      const child = this.children[i]
+      if (child.start < value && value < child.end) {
+        mid = child.split(value)
+        leftEnd = i + 1
+        break
+      } else if (child.start >= value) {
+        leftEnd = i
+        break
+      }
+    }
+
+    const rightLen = this.children.length - leftEnd
+    const rightChildren = this.children.splice(leftEnd, rightLen)
+    if (mid !== undefined) {
+      rightChildren.unshift(mid)
+    }
+    const result = new RangeTree(value, this.end, this.count, rightChildren)
+    this.end = value
+    return result
+  }
+
   toRanges () {
     const ranges = []
     const stack = [this]
@@ -70,6 +101,129 @@ class RangeTree {
       }
     }
     return ranges
+  }
+
+  toAsciiArt () {
+    const eventSet = new Set()
+    const layers = []
+    let nextLayer = [this]
+    while (nextLayer.length > 0) {
+      const layer = nextLayer
+      layers.push(layer)
+      nextLayer = []
+      for (const node of layer) {
+        eventSet.add(node.start)
+        eventSet.add(node.end)
+        for (const child of node.children) {
+          nextLayer.push(child)
+        }
+      }
+    }
+    const events = [...eventSet]
+    events.sort((a, b) => a - b)
+    let eventDigits = 1
+    for (const event of events) {
+      eventDigits = Math.max(eventDigits, event.toString(10).length)
+    }
+    const colWidth = eventDigits + 3
+    const eventToCol = new Map()
+    const headerLine = []
+    for (let i = 0; i < events.length; i++) {
+      eventToCol.set(events[i], i * colWidth)
+      headerLine.push(events[i].toString(10).padEnd(colWidth, ' '))
+    }
+    const lines = [headerLine.join('')]
+    for (const layer of layers) {
+      const line = []
+      let curIdx = 0
+      for (const {start, end, count} of layer) {
+        const startIdx = eventToCol.get(start)
+        const endIdx = eventToCol.get(end)
+        if (startIdx > curIdx) {
+          line.push(' '.repeat((startIdx - curIdx)))
+        }
+        let rangeStart = `[${count}`
+        const rangeLen = endIdx - startIdx
+        if (rangeLen > (rangeStart.length + 1)) {
+          rangeStart = rangeStart.padEnd(rangeLen - 1, '-')
+        }
+        line.push(`${rangeStart})`)
+        curIdx = endIdx
+      }
+      lines.push(line.join(''))
+    }
+    lines.push('')
+
+    return lines.join('\n')
+  }
+
+  _toAsciiArt (colMap) {
+    const layers = []
+    let nextLayer = [this]
+    while (nextLayer.length > 0) {
+      const layer = nextLayer
+      layers.push(layer)
+      nextLayer = []
+      for (const node of layer) {
+        for (const child of node.children) {
+          nextLayer.push(child)
+        }
+      }
+    }
+    const lines = []
+    for (const layer of layers) {
+      const line = []
+      let curIdx = 0
+      for (const {start, end, count} of layer) {
+        const startIdx = colMap.get(start)
+        const endIdx = colMap.get(end)
+        if (startIdx > curIdx) {
+          line.push(' '.repeat((startIdx - curIdx)))
+        }
+        let rangeStart = `[${count}`
+        const rangeLen = endIdx - startIdx
+        if (rangeLen > (rangeStart.length + 1)) {
+          rangeStart = rangeStart.padEnd(rangeLen - 1, '-')
+        }
+        line.push(`${rangeStart})`)
+        curIdx = endIdx
+      }
+      lines.push(line.join(''))
+    }
+
+    return lines.join('\n')
+  }
+
+  static toAsciiForest (trees) {
+    const eventSet = new Set()
+    for (const tree of trees) {
+      const stack = [tree]
+      while (stack.length > 0) {
+        const cur = stack.pop()
+        eventSet.add(cur.start)
+        eventSet.add(cur.end)
+        for (let i = cur.children.length - 1; i >= 0; i--) {
+          stack.push(cur.children[i])
+        }
+      }
+    }
+    const events = [...eventSet]
+    events.sort((a, b) => a - b)
+    let eventDigits = 1
+    for (const event of events) {
+      eventDigits = Math.max(eventDigits, event.toString(10).length)
+    }
+    const colWidth = eventDigits + 3
+    const colMap = new Map()
+    for (let i = 0; i < events.length; i++) {
+      colMap.set(events[i], i * colWidth)
+    }
+    const blocks = []
+    blocks.push(_offsetsToAscii(colMap))
+    for (const tree of trees) {
+      blocks.push(tree._toAsciiArt(colMap))
+    }
+    return blocks.join('\n')
   }
 
   /**
@@ -98,6 +252,21 @@ class RangeTree {
     }
     return root
   }
+}
+
+function _offsetsToAscii (colMap) {
+  const line = []
+  let curIdx = 0
+  for (const [offset, index] of colMap) {
+    if (index > curIdx) {
+      line.push(' '.repeat(index - curIdx))
+      curIdx = index
+    }
+    const str = offset.toString(10)
+    line.push(str)
+    curIdx += str.length
+  }
+  return line.join('')
 }
 
 module.exports = {RangeTree}

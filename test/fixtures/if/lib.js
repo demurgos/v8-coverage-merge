@@ -1,4 +1,4 @@
-module.exports = function (test) {
+module.exports = function lib (test) {
   if (test) {
     console.log('a')
   } else {
