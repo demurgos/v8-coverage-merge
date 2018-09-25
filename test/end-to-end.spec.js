@@ -7,19 +7,22 @@ const merge = require('../index')
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures')
 const COV_RE = /^cov\.(.+)\.json$/
+// `nested-if` is skipped because its `cov.all.json` is denormalized
+const SKIPPED = new Set(['nested-if'])
 
 describe('end-to-end', () => {
   for (const fixture of getFixtures()) {
     const {input, expected} = readFixture(fixture)
-
-    // if (fixture !== 'if') {
-    //   continue
-    // }
-
-    it(fixture, () => {
+    const test = () => {
       let actual = merge(...input)
       chai.assert.deepEqual(actual, expected)
-    })
+    }
+
+    if (SKIPPED.has(fixture)) {
+      it.skip(fixture, test)
+    } else {
+      it(fixture, test)
+    }
   }
 })
 
