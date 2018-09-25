@@ -265,8 +265,7 @@ function extendChildren (parentTrees) {
   // const expectedEvents = []
 
   const openTrees = new Set()
-  const nextChildIndexes = new Map(parentTrees.map(tree => [tree, 0]))
-  const tmpChildren = new Map(parentTrees.map(tree => [tree, undefined]))
+  const remainingChildren = new Map(parentTrees.map(tree => [tree, [...tree.children].reverse()]))
 
   const inclusionTree = new Map()
   const inclusionRoots = new Set()
@@ -277,40 +276,23 @@ function extendChildren (parentTrees) {
     const startChildren = []
     const endChildren = []
     const exhaustedParents = []
-    for (const [parent, nextChildIndex] of nextChildIndexes) {
-      let child = tmpChildren.get(parent)
-      if (child === undefined) {
-        child = parent.children[nextChildIndex]
-        if (child === undefined) {
-          exhaustedParents.push(parent)
-          continue
-        }
-      }
-      if (child.end === event) {
+    for (const [parent, remaining] of remainingChildren) {
+      let child = remaining[remaining.length - 1]
+      if (child !== undefined && child.end === event) {
+        remaining.pop()
         endChildren.push(child)
-        nextChildIndexes.set(parent, nextChildIndex + 1)
+        child = remaining[remaining.length - 1]
       }
-    }
-    for (const parent of exhaustedParents) {
-      nextChildIndexes.delete(parent)
-    }
-    exhaustedParents.length = 0
-    for (const [parent, nextChildIndex] of nextChildIndexes) {
-      let child = tmpChildren.get(parent)
-      if (child === undefined) {
-        child = parent.children[nextChildIndex]
-        if (child === undefined) {
-          exhaustedParents.push(parent)
-          continue
-        }
-      }
-      if (child.start === event) {
+      if (child !== undefined && child.start === event) {
         startChildren.push(child)
         parents.set(child, parent)
       }
+      if (child === undefined) {
+        exhaustedParents.push(parent)
+      }
     }
     for (const parent of exhaustedParents) {
-      nextChildIndexes.delete(parent)
+      remainingChildren.delete(parent)
     }
     if (startChildren.length > 0) {
       for (const openTree of openTrees) {
@@ -321,7 +303,7 @@ function extendChildren (parentTrees) {
             // --#####--- openTree
             // ----#####- startChild
             const [openLeft, openRight] = splitRangeTree(openTree, startChild.start)
-            const [startLeft, startRight] = splitRangeTree(startChild, startChild.start)
+            const [startLeft, startRight] = splitRangeTree(startChild, openTree.end)
             const openParent = parents.get(openTree)
             const startParent = parents.get(startChild)
             Object.assign(startChild, startLeft)
@@ -330,7 +312,13 @@ function extendChildren (parentTrees) {
             parents.set(startRight, startParent)
             endChildren.push(openTree)
             startChildren.push(openRight)
-            tmpChildren.set(startParent, startRight)
+            const openRemaining = remainingChildren.get(openParent)
+            const startRemaining = remainingChildren.get(startParent)
+            openRemaining.pop()
+            openRemaining.push(openRight)
+            startRemaining.pop()
+            startRemaining.push(startRight)
+            startRemaining.push(startChild)
             break
           }
         }

@@ -114,3 +114,17 @@ merges two trees with partially overlapping children (after/before)
 =
 [5------------------------)
    [3---)[8---)[10-----)
+
+
+merges two trees with partially nested children (super/sub)
+0  1  2  3  4  5  6  7  8  9
+[1------------------------)
+   [6------------------)
+
++
+[4------------------------)
+      [2---------)
+=
+[5------------------------)
+   [10-----------------)
+      [8---------)
