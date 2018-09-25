@@ -52,7 +52,7 @@ function mergeFunctions (fns) {
 }
 
 function flattenRangeTree (tree) {
-  return RangeTree.prototype.toRanges.apply(tree)
+  return tree.toRanges()
 }
 
 function normalizeRangeTree (tree) {
@@ -64,12 +64,7 @@ function normalizeRangeTree (tree) {
       continue
     }
     if (prevChild.count === child.count && prevChild.end === child.start) {
-      prevChild = {
-        start: prevChild.start,
-        end: child.end,
-        count: prevChild.count,
-        children: [...prevChild.children, ...child.children],
-      }
+      prevChild = new RangeTree(prevChild.start, child.end, prevChild.count, [...prevChild.children, ...child.children])
     } else {
       children.push(normalizeRangeTree(prevChild))
       prevChild = child
@@ -78,7 +73,7 @@ function normalizeRangeTree (tree) {
   if (prevChild !== undefined) {
     children.push(normalizeRangeTree(prevChild))
   }
-  return {...tree, children}
+  return Object.assign(tree.copy(), {children})
 }
 
 /**
@@ -99,8 +94,8 @@ function splitRangeTree (tree, value) {
     }
   }
   return [
-    {start: tree.start, end: value, count: tree.count, children: leftChildren},
-    {start: value, end: tree.end, count: tree.count, children: rightChildren},
+    new RangeTree(tree.start, value, tree.count, leftChildren),
+    new RangeTree(value, tree.end, tree.count, rightChildren),
   ]
 }
 
@@ -112,12 +107,12 @@ function mergeRangeTrees (trees) {
     return undefined
   }
   const first = trees[0]
-  return {
-    start: first.start,
-    end: first.end,
-    count: trees.reduce((acc, tree) => acc + tree.count, 0),
-    children: mergeRangeTreeChildren(trees),
+  let count = 0
+  for (const tree of trees) {
+    count += tree.count
   }
+  const children = mergeRangeTreeChildren(trees)
+  return new RangeTree(first.start, first.end, count, children)
 }
 
 function mergeRangeTreeChildren (parentTrees) {
@@ -344,13 +339,7 @@ function extendChildren (parentTrees) {
       }
       openTrees.delete(endChild)
       const endParent = parents.get(endChild)
-      if (endParent === undefined) {
-        console.log(endChild)
-      }
       const newChildrenSet = newChildren.get(endParent)
-      if (newChildrenSet === undefined) {
-        console.log(endParent)
-      }
       newChildrenSet.add(endChild)
     }
     for (const startChild of startChildren) {
@@ -392,22 +381,3 @@ function hashFunction (fn) {
 function numSort (arr) {
   arr.sort((a, b) => a - b)
 }
-
-// OK:
-// [1      ]
-//      [2     ]
-// ->
-// [1  ][3 ][2 ]
-//
-// Not OK:
-// [1            ]
-//      [2  ]
-// ->
-// [1  ][3  ][1  ]
-//
-// OK:
-// [1            ]
-//      [2  ]
-// ->
-// [1   [3 ]   ]
-//

@@ -6,10 +6,16 @@ class RangeTree {
     this.children = children
   }
 
-  // Shallow copy
+  // Shallow
   copy () {
     return new RangeTree(this.start, this.end, this.count, this.children)
   }
+
+  // normalize() {
+  //   for (const child of this.children) {
+  //     child.normalize()
+  //   }
+  // }
 
   toRanges () {
     const ranges = []
