@@ -103,6 +103,17 @@ class RangeTree {
     return ranges
   }
 
+  addCount (n) {
+    const stack = [this]
+    while (stack.length > 0) {
+      const cur = stack.pop()
+      cur.count += n
+      for (let i = cur.children.length - 1; i >= 0; i--) {
+        stack.push(cur.children[i])
+      }
+    }
+  }
+
   toAsciiArt () {
     const eventSet = new Set()
     const layers = []

@@ -127,7 +127,7 @@ function mergeRangeTreeChildren (parentTrees) {
     }
     const merged = mergeRangeTrees(splitTrees)
     if (merged !== undefined) {
-      merged.count += parentAcc
+      merged.addCount(parentAcc)
       result.push(merged)
     }
   }
@@ -259,6 +259,7 @@ function extendChildren (parentTrees) {
             startRemaining.pop()
             startRemaining.push(startRight)
             startRemaining.push(startChild)
+            // TODO: Check is this break is safe
             break
           }
         }
