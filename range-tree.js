@@ -19,13 +19,11 @@ class RangeTree {
     for (const child of this.children) {
       if (head === undefined) {
         head = child
+      } else if (child.count === head.count && child.start === curEnd) {
+        tail.push(child)
       } else {
-        if (child.count === head.count && child.start === curEnd) {
-          tail.push(child)
-        } else {
-          endChain()
-          head = child
-        }
+        endChain()
+        head = child
       }
       curEnd = child.end
     }
@@ -257,6 +255,9 @@ class RangeTree {
         } else {
           break
         }
+      }
+      if (top.start === node.start) {
+        // throw new Error('Fail')
       }
       top.children.push(node)
       stack.push(node)

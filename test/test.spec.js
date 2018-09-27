@@ -117,7 +117,8 @@ describe('v8-coverage-merge', () => {
     //      [2-------)
     // =
     // [6----------------------)
-    //      [5--)[3--)[4--)
+    //      [5-------)[4--)
+    //           [3--)
 
     const merged = merge(
       {
@@ -179,7 +180,8 @@ describe('v8-coverage-merge', () => {
     //           [0-------)
     // =
     // [6----------------------)
-    //      [4--)[1--)[3--)
+    //      [4-------)[3--)
+    //           [1--)
 
     const merged = merge(
       {
@@ -429,8 +431,8 @@ describe('v8-coverage-merge', () => {
     //      [1-------)     [2--)               [0-------)
     // =
     // [6----------------------------------------------------)
-    //      [4--)[2--)[4------------)     [5--)[2--)[3--)
-    //                     [3--)
+    //      [4----------------------)     [5-------)[3--)
+    //           [2--)     [3--)               [2--)
 
     const merged = merge(
       {
@@ -495,7 +497,7 @@ describe('v8-coverage-merge', () => {
     )
 
     merged.functions.length.should.equal(1)
-    merged.functions[0].ranges.length.should.equal(8)
+    merged.functions[0].ranges.length.should.equal(7)
   })
 
   // Skipped until the tested behavior is clarified

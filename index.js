@@ -42,10 +42,6 @@ function mergeFunctions (fns) {
     trees.push(tree)
     isBlockCoverage = isBlockCoverage || fn.isBlockCoverage
   }
-  if (first.functionName === 'formatWithOptions') {
-    console.log(RangeTree.toAsciiForest(trees))
-    // process.exit(0)
-  }
   const mergedTree = mergeRangeTrees(trees)
   mergedTree.normalize()
   const ranges = mergedTree.toRanges()
@@ -330,7 +326,7 @@ function extendChildren (parentTrees) {
     }
   }
   for (const parentTree of parentTrees) {
-    parentTree.children = [...newChildren.get(parentTree)]
+    parentTree.children = newChildren.get(parentTree)
   }
 }
 
