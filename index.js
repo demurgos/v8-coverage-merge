@@ -295,25 +295,37 @@ function extendChildren (parentTrees) {
     }
   }
   for (const superTree of inclusionRoots) {
-    const subTrees = inclusionTree.get(superTree)
-    const wrappers = new Map()
-    if (subTrees !== undefined) { // Always true
-      for (const subTree of subTrees) {
-        const parent = parents.get(subTree)
-        const wrapper = wrappers.get(parent)
-        if (wrapper === undefined) {
-          const nested = subTree.copy()
-          Object.assign(
-            subTree,
-            {start: superTree.start, end: superTree.end, count: parent.count, children: [nested]},
-          )
-          wrappers.set(parent, subTree)
-        } else {
-          for (const child of subTree.children) {
-            wrapper.children.push(child)
-          }
-          newChildren.get(parent).delete(subTree)
+    // post-order sorted list of descendants (by inclusion)
+    const descendants = []
+    const stack = [superTree]
+    while (stack.length > 0) {
+      // The ordering of the stacks and iteration is important
+      const cur = stack.pop()
+      if (cur !== superTree) {
+        descendants.unshift(cur)
+      }
+      const subTrees = inclusionTree.get(cur)
+      if (subTrees !== undefined) {
+        for (const subTree of subTrees) {
+          stack.push(subTree)
         }
+      }
+    }
+    const parentToWrapper = new Map()
+
+    for (const subTree of descendants) {
+      const parent = parents.get(subTree)
+      const wrapper = parentToWrapper.get(parent)
+      if (wrapper === undefined) {
+        const nested = subTree.copy()
+        Object.assign(
+          subTree,
+          {start: superTree.start, end: superTree.end, count: parent.count, children: [nested]},
+        )
+        parentToWrapper.set(parent, subTree)
+      } else {
+        wrapper.children.push(subTree)
+        newChildren.get(parent).delete(subTree)
       }
     }
   }
